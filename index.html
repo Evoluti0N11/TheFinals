@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Finals Strategy Maker</title>
+  <style>
+    :root {
+      --primary: #d6333e;
+      --dark: #1a1a1a;
+      --sidebar-bg: #252525;
+      --text: #f4f4f4;
+    }
+
+    body {
+      font-family: 'Oswald', sans-serif;
+      background-color: var(--dark);
+      color: var(--text);
+      margin: 0;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #sidebar {
+      width: 300px;
+      background-color: var(--sidebar-bg);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+      z-index: 10;
+    }
+
+    h2 {
+      margin: 0;
+      text-transform: uppercase;
+      font-style: italic;
+      border-bottom: 2px solid var(--primary);
+      padding-bottom: 10px;
+    }
+
+    select {
+      padding: 5px;
+      background: #333;
+      color: white;
+      border: 1px solid #555;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .tools {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      overflow-y: auto;
+      flex-grow: 1;
+    }
+
+    .tool-category {
+      font-size: 0.9em;
+      color: #aaa;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    .team-block {
+      background: rgba(255,255,255,0.05);
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 10px;
+    }
+
+    .team-header {
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .team-controls {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+
+    .class-select {
+      width: 100%;
+      text-align: center;
+    }
+
+    /* Base Draggable Style */
+    .draggable-source {
+      width: 50px; /* Slightly larger in sidebar for visibility */
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      font-weight: bold;
+      user-select: none;
+      /* Ensure background images fit nicely */
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+
+    .draggable-source:active { cursor: grabbing; }
+
+    /* --- OBJECTIVE IMAGES SETUP --- */
+    /* REPLACE THE URLs BELOW WITH PATHS TO YOUR PNG FILES */
+    .icon-cashout {
+      /* Example: url('cashout.png'); */
+      background-image: url('cashout.png');
+    }
+    .icon-vault {
+      /* Example: url('vault.png'); */
+      background-image: url('vault.png');
+    }
+
+    /* Class Specific Styles (Players) */
+    .icon-player {
+      border: 2px solid #666;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      background-color: #444; /* Default bg if color fails */
+    }
+    .class-L { width: 32px; height: 32px; border-radius: 50%; font-size: 14px; border-width: 2px; }
+    .class-M { width: 40px; height: 40px; border-radius: 50%; font-size: 16px; border-width: 3px; }
+    .class-H { width: 48px; height: 48px; border-radius: 8px; font-size: 18px; border-width: 4px; }
+
+    .items-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #map-container {
+      flex-grow: 1;
+      position: relative;
+      background-color: #121212;
+      overflow: hidden;
+      cursor: grab;
+    }
+    #map-container:active { cursor: grabbing; }
+
+    .map-wrapper {
+      position: absolute;
+      top: 0; left: 0;
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+
+    #map-img {
+      display: block;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    /* Base Placed Icon Style */
+    .placed-icon {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      cursor: move;
+      transform: translate(-50%, -50%);
+      z-index: 100;
+      user-select: none;
+      color: white;
+      text-shadow: 0 0 3px black;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+
+    /* Make Objectives LARGE on the map */
+    .placed-icon.icon-cashout,
+    .placed-icon.icon-vault {
+      width: 80px;
+      height: 80px;
+      z-index: 90; /* Players (z-index 100) will sit on top of objectives */
+      filter: drop-shadow(0 0 5px rgba(0,0,0,0.5));
+    }
+
+    .placed-icon:hover {
+      z-index: 110;
+      filter: brightness(1.2) drop-shadow(0 0 5px rgba(255,255,255,0.5));
+    }
+
+    .controls {
+      margin-top: auto;
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      flex: 1;
+      text-transform: uppercase;
+    }
+    button:hover { opacity: 0.9; }
+
+    .zoom-controls {
+      position: absolute;
+      bottom: 20px; right: 20px;
+      display: flex; gap: 5px;
+      z-index: 100;
+    }
+
+    .zoom-btn {
+      width: 40px; height: 40px;
+      background: #252525; color: white;
+      font-size: 20px;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid #444;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>The Finals Strat</h2>
+
+  <div>
+    <div class="tool-category">Map</div>
+    <select id="mapSelect"></select>
+  </div>
+
+  <div class="tools">
+    <div>
+      <div class="tool-category">Objectives</div>
+      <div class="items-grid" style="justify-content: flex-start;">
+        <div class="draggable-source icon-cashout" draggable="true" data-type="cashout"></div>
+        <div class="draggable-source icon-vault" draggable="true" data-type="vault"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="tool-category">Team Compositions</div>
+      <div id="team-container"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button onclick="clearMap()">Clear</button>
+    <button onclick="resetView()">Reset View</button>
+  </div>
+</div>
+
+<div id="map-container">
+  <div class="map-wrapper" id="drop-zone">
+    <img id="map-img" src="" alt="Map">
+  </div>
+
+  <div class="zoom-controls">
+    <button class="zoom-btn" onclick="zoomIn()">+</button>
+    <button class="zoom-btn" onclick="zoomOut()">-</button>
+  </div>
+</div>
+
+<script>
+  const mapData = {
+    "Kyoto": "KyotoOverview.png",
+    "Seoul": "https://placehold.co/1920x1080/1a1a1a/FFF?text=Seoul+Placeholder",
+    "Monaco": "https://placehold.co/1920x1080/1a1a1a/FFF?text=Monaco+Placeholder",
+    "Skyway Stadium": "https://placehold.co/1920x1080/1a1a1a/FFF?text=Skyway+Placeholder"
+  };
+
+  const teams = [
+    { name: "The Vogues (Pink)", color: "#FF69B4", players: ['L', 'M', 'H'] },
+    { name: "The Steamrollers (Orange)", color: "#FFA500", players: ['H', 'H', 'M'] },
+    { name: "The Socialites (Purple)", color: "#9370DB", players: ['M', 'M', 'M'] },
+    { name: "The Kingfish (Blue)", color: "#00BFFF", players: ['L', 'L', 'H'] }
+  ];
+
+  const mapSelect = document.getElementById('mapSelect');
+  const mapImg = document.getElementById('map-img');
+  const dropZone = document.getElementById('drop-zone');
+  const container = document.getElementById('map-container');
+  const teamContainer = document.getElementById('team-container');
+
+  let scale = 1;
+  let pointX = 0;
+  let pointY = 0;
+  let isPanning = false;
+  let startX = 0;
+  let startY = 0;
+  let draggedItem = null;
+  let isNewItem = false;
+
+  function init() {
+    Object.keys(mapData).forEach(mapName => {
+      const option = document.createElement('option');
+      option.value = mapData[mapName];
+      option.text = mapName;
+      mapSelect.appendChild(option);
+    });
+
+    mapSelect.addEventListener('change', (e) => loadMap(e.target.value));
+
+    if (mapSelect.options.length > 0) loadMap(mapSelect.options[0].value);
+
+    renderTeams();
+    setupDragAndDrop();
+    setupZoomAndPan();
+  }
+
+  function renderTeams() {
+    teamContainer.innerHTML = '';
+    teams.forEach((team, teamIndex) => {
+      const teamBlock = document.createElement('div');
+      teamBlock.className = 'team-block';
+
+      const header = document.createElement('div');
+      header.className = 'team-header';
+      header.style.color = team.color;
+      header.innerText = team.name;
+      teamBlock.appendChild(header);
+
+      const controls = document.createElement('div');
+      controls.className = 'team-controls';
+
+      const iconsGrid = document.createElement('div');
+      iconsGrid.className = 'items-grid';
+
+      team.players.forEach((pClass, playerIndex) => {
+        const select = document.createElement('select');
+        select.className = 'class-select';
+        ['L', 'M', 'H'].forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.text = c;
+          if(c === pClass) opt.selected = true;
+          select.appendChild(opt);
+        });
+
+        select.addEventListener('change', (e) => {
+          teams[teamIndex].players[playerIndex] = e.target.value;
+          updateIconVisuals(teamIndex, playerIndex, e.target.value);
+        });
+        controls.appendChild(select);
+
+        const icon = document.createElement('div');
+        icon.id = `source-${teamIndex}-${playerIndex}`;
+        // Added icon-player class for specific styling
+        icon.className = `draggable-source icon-player class-${pClass}`;
+        icon.style.backgroundColor = team.color;
+        icon.style.borderColor = 'white';
+        icon.draggable = true;
+        icon.textContent = pClass;
+
+        icon.dataset.type = 'player';
+        icon.dataset.teamIndex = teamIndex;
+        icon.dataset.playerIndex = playerIndex;
+        icon.dataset.color = team.color;
+
+        iconsGrid.appendChild(icon);
+      });
+
+      teamBlock.appendChild(controls);
+      teamBlock.appendChild(iconsGrid);
+      teamContainer.appendChild(teamBlock);
+    });
+  }
+
+  function updateIconVisuals(tIdx, pIdx, newClass) {
+    const source = document.getElementById(`source-${tIdx}-${pIdx}`);
+    source.className = `draggable-source icon-player class-${newClass}`;
+    source.textContent = newClass;
+
+    const placedIcons = document.querySelectorAll(`.placed-icon[data-team-idx="${tIdx}"][data-player-idx="${pIdx}"]`);
+    placedIcons.forEach(icon => {
+      icon.className = `placed-icon icon-player class-${newClass}`;
+      icon.textContent = newClass;
+    });
+  }
+
+  function loadMap(src) {
+    mapImg.onload = () => resetView();
+    mapImg.src = src;
+    clearMap();
+  }
+
+  // --- DRAG & DROP ---
+  function setupDragAndDrop() {
+    document.addEventListener('dragstart', function(e) {
+      const t = e.target;
+      if (t.classList.contains('draggable-source')) {
+        isNewItem = true;
+        draggedItem = t;
+        const data = {
+          type: t.dataset.type,
+          text: t.textContent,
+          bg: t.style.backgroundColor || '',
+          className: t.className,
+          tIdx: t.dataset.teamIndex,
+          pIdx: t.dataset.playerIndex
+        };
+        e.dataTransfer.setData('application/json', JSON.stringify(data));
+      } else if (t.classList.contains('placed-icon')) {
+        isNewItem = false;
+        draggedItem = t;
+        const rect = t.getBoundingClientRect();
+        e.dataTransfer.setData('offset', JSON.stringify({
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        }));
+      }
+    });
+
+    dropZone.addEventListener('dragover', (e) => e.preventDefault());
+
+    dropZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      const wrapperRect = dropZone.getBoundingClientRect();
+      let x = (e.clientX - wrapperRect.left) / scale;
+      let y = (e.clientY - wrapperRect.top) / scale;
+
+      if (isNewItem) {
+        const raw = e.dataTransfer.getData('application/json');
+        if(!raw) return;
+        const data = JSON.parse(raw);
+        createPlacedIcon(x, y, data);
+      } else {
+        draggedItem.style.left = x + 'px';
+        draggedItem.style.top = y + 'px';
+      }
+    });
+  }
+
+  function createPlacedIcon(x, y, data) {
+    const el = document.createElement('div');
+    let baseClass = data.className.replace('draggable-source', 'placed-icon');
+    el.className = baseClass;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    // Only add text if it's a player (objectives have no text now)
+    if(data.type === 'player') {
+      el.textContent = data.text;
+    }
+    el.draggable = true;
+
+    if (data.bg) el.style.backgroundColor = data.bg;
+    if (data.type === 'player') el.style.borderColor = 'white';
+
+    if(data.tIdx !== undefined) {
+      el.dataset.teamIdx = data.tIdx;
+      el.dataset.playerIdx = data.pIdx;
+    }
+
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      el.remove();
+    });
+
+    dropZone.appendChild(el);
+  }
+
+  // --- ZOOM & PAN ---
+  function setupZoomAndPan() {
+    container.addEventListener('mousedown', (e) => {
+      if (e.target === container || e.target === dropZone || e.target === mapImg) {
+        isPanning = true;
+        startX = e.clientX - pointX;
+        startY = e.clientY - pointY;
+        container.style.cursor = 'grabbing';
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      isPanning = false;
+      container.style.cursor = 'grab';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isPanning) return;
+      e.preventDefault();
+      pointX = e.clientX - startX;
+      pointY = e.clientY - startY;
+      updateTransform();
+    });
+
+    container.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const xs = (e.clientX - pointX) / scale;
+      const ys = (e.clientY - pointY) / scale;
+      const delta = -e.deltaY;
+      (delta > 0) ? (scale *= 1.1) : (scale /= 1.1);
+      scale = Math.min(Math.max(0.1, scale), 5);
+      pointX = e.clientX - xs * scale;
+      pointY = e.clientY - ys * scale;
+      updateTransform();
+    });
+  }
+
+  function updateTransform() {
+    dropZone.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+  }
+
+  function resetView() {
+    const containerRect = container.getBoundingClientRect();
+    const imgWidth = mapImg.naturalWidth || 1000;
+    const imgHeight = mapImg.naturalHeight || 1000;
+    const scaleX = containerRect.width / imgWidth;
+    const scaleY = containerRect.height / imgHeight;
+    scale = Math.min(scaleX, scaleY) * 0.9;
+    pointX = (containerRect.width - imgWidth * scale) / 2;
+    pointY = (containerRect.height - imgHeight * scale) / 2;
+    updateTransform();
+  }
+
+  function zoomIn() { scale *= 1.2; updateTransform(); }
+  function zoomOut() { scale /= 1.2; updateTransform(); }
+  function clearMap() { document.querySelectorAll('.placed-icon').forEach(i => i.remove()); }
+
+  init();
+</script>
+</body>
+</html>
